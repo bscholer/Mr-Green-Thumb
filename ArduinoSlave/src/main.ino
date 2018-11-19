@@ -1,7 +1,8 @@
 #include "Arduino.h"
 #include "dht.h"
 
-#define DEFAULT_GROW_LIGHT_PWM_PIN 12
+//The default grow light pin connections
+#define GROW_LIGHT 2
 
 dht DHT;
 const byte numChars = 32;
@@ -12,86 +13,70 @@ boolean newData = false;
 //float getTempC(int sensorPin, int powerPin) - returns temperature in Celcius
 //float getTempF(int sensorPin, int powerPin) - returns temperature in Fahrenheit
 //float getHumidity(int sensorPin, int powerPin) - returns the humidity (0-100)
-//float getSoilMoisture(int sensorPin, int powerPin, float calibrationCoef) - returns the soil moisture (0-100), using the calibrationCoef.
+//float getMoist(int sensorPin, int powerPin, float calibrationCoef) - returns the soil moisture (0-100), using the calibrationCoef.
 //float getCalibrationCoef(int sensorPin, int powerPin) - returns the calibration coefficent.
 //void water(int pin1, int pin2, int ms) - turns <pin1> HI, and <pin2> LO for <ms>
-//void setBrightness(int pwmPin, int brightness) - outputs appropriate PWM signal on <pwmPin> to obtain <brightness> (0-100%).
+//void setBrightness(int brightness) - outputs appropriate PWM signal on defined GROW pins to obtain <brightness> (0-100%).
+//void setBrightnessPins(int posPin, int negPin, int brightness) - outputs appropriate PWM signal on <posPin> and <negPin> to obtain <brightness> (0-100%).
+// NOT A THING void makePinNeg(int pin) - makes <pin> LOW
 
 void setup () {
 	Serial.begin(115200);
+	Serial.println("<Arduino ready>");
 	Serial.setTimeout(2000);
-	Serial.println("<Arduino is ready>");
-	pinMode(DEFAULT_GROW_LIGHT_PWM_PIN, OUTPUT);
-	analogWrite(DEFAULT_GROW_LIGHT_PWM_PIN, percentBrightnessToPwm(0));
+	pinMode(GROW_LIGHT, OUTPUT);
+	digitalWrite(GROW_LIGHT, LOW);
 }
 
-float getCalibrationCoef(int sensorPin, int powerPin) {
-	//the amount of samples to take and average
-	float samples = 5;
-	float sum = 0;
-	for (int i = 0; i < samples; i++) {
-		sum += getSoilMoisture(sensorPin, powerPin);
-		delay(200);
-	}
-	return 100.0 / (sum / samples);
-}
-
-//TODO redo this for actual LED strip
 int percentBrightnessToPwm(int brightness) {
-	int val = map(brightness, 100, 0, 0, 255);
+	int val = map(brightness, 0, 100, 0, 255);
 	return val;
 }
 
-void setBrightness(int pwmPin, int brightness) {
-	pinMode(pwmPin, OUTPUT);
-	analogWrite(pwmPin, percentBrightnessToPwm(brightness));
+void setBrightnessPins(int posPin, int negPin, int brightness) {
+	pinMode(posPin, OUTPUT);
+	pinMode(negPin, OUTPUT);
+	digitalWrite(negPin, LOW);
+	analogWrite(posPin, percentBrightnessToPwm(brightness));
 }
 
-float getTempC(int sensorPin, int powerPin) {
+//TODO write this
+void setBrightness(int brightness) {
+}
+
+float getTempC(int sensorPin) {
 	int status;
 	float ret;
-
-	pinMode(powerPin, OUTPUT);
-	digitalWrite(powerPin, HIGH);
 
 	do {
 		status = DHT.read11(sensorPin);
 	} while (DHT.humidity > 100 || DHT.humidity < 0 || DHT.temperature < -100);
 	ret = DHT.temperature;
 
-	digitalWrite(powerPin, LOW);
 	return ret;
 }
 
-float getTempF(int sensorPin, int powerPin) {
+float getTempF(int sensorPin) {
 	int status;
 	float ret;
-
-	pinMode(powerPin, OUTPUT);
-	digitalWrite(powerPin, HIGH);
 
 	do {
 		status = DHT.read11(sensorPin);
 	} while (DHT.humidity > 100 || DHT.humidity < 0 || DHT.temperature < -100);
 	ret = ((DHT.temperature * 9 / 5) + 32);
 
-	digitalWrite(powerPin, LOW);
 	return ret;
 }
 
-float getHumidity(int sensorPin, int powerPin) {
+float getHumidity(int sensorPin) {
 	int status;
 	float ret;
-
-	pinMode(powerPin, OUTPUT);
-	digitalWrite(powerPin, HIGH);
 
 	do {
 		status = DHT.read11(sensorPin);
 	} while (DHT.humidity > 100 || DHT.humidity < 0 || DHT.temperature < -100);
 	ret = DHT.humidity;
 
-	digitalWrite(powerPin, LOW);
 	return ret;
 }
 
@@ -100,27 +85,25 @@ float getCalibratedSoilMoisture(int sensorPin, int powerPin, float calibrationCo
 
 	pinMode(powerPin, OUTPUT);
 	digitalWrite(powerPin, HIGH);
-	delay(50);
+	delay(200);
 
-	ret = map(analogRead(sensorPin), 1023, 200, 0, 100);
+	ret = map(analogRead(sensorPin), 1023, 0, 0, 100);
 
-	delay(50);
+	delay(200);
 	digitalWrite(powerPin, LOW);
 	return ret * calibrationCoef;
 }
 
-float getSoilMoisture(int sensorPin, int powerPin) {
+float getMoist(int sensorPin, int powerPin) {
 	float ret;
 
 	pinMode(powerPin, OUTPUT);
 	digitalWrite(powerPin, HIGH);
-	delay(50);
+	delay(200);
 
-	Serial.print("moist: ");
-	Serial.println(analogRead(sensorPin));
-	ret = map(analogRead(sensorPin), 1023, 200, 0, 100);
+	ret = analogRead(sensorPin);
 
-	delay(50);
+	delay(200);
 	digitalWrite(powerPin, LOW);
 	return ret;
 }
@@ -138,45 +121,35 @@ short water(int pin1, int pin2, int ms) {
 void loop () {
 	while(Serial.available()) {
 		String input = Serial.readStringUntil('\r');
+		Serial.print("Rec: ");
+		Serial.println(input);
 
 		if (input.indexOf("getTempC(") >= 0) {
 			String args = input.substring(input.indexOf("(") + 1, input.indexOf(")"));
 			args.trim();
 			int sensorPin = args.substring(0, args.indexOf(",")).toInt();
-			args = args.substring(args.indexOf(",") + 1);
-			args.trim();
-			int powerPin = args.substring(0, args.indexOf(",")).toInt();
-			Serial.println(getTempC(sensorPin, powerPin));
+			Serial.println(getTempC(sensorPin));
 		}
 		else if (input.indexOf("getTempF(") >= 0) {
 			String args = input.substring(input.indexOf("(") + 1, input.indexOf(")"));
 			args.trim();
 			int sensorPin = args.substring(0, args.indexOf(",")).toInt();
-			args = args.substring(args.indexOf(",") + 1);
-			args.trim();
-			int powerPin = args.substring(0, args.indexOf(",")).toInt();
-			Serial.println(getTempF(sensorPin, powerPin));
+			Serial.println(getTempF(sensorPin));
 		}
 		else if (input.indexOf("getHumidity(") >= 0) {
 			String args = input.substring(input.indexOf("(") + 1, input.indexOf(")"));
 			args.trim();
 			int sensorPin = args.substring(0, args.indexOf(",")).toInt();
-			args = args.substring(args.indexOf(",") + 1);
-			args.trim();
-			int powerPin = args.substring(0, args.indexOf(",")).toInt();
-			Serial.println(getHumidity(sensorPin, powerPin));
+			Serial.println(getHumidity(sensorPin));
 		}
-		else if (input.indexOf("getSoilMoisture(") >= 0) {
+		else if (input.indexOf("getMoist(") >= 0) {
 			String args = input.substring(input.indexOf("(") + 1, input.indexOf(")"));
 			args.trim();
 			int sensorPin = args.substring(0, args.indexOf(",")).toInt();
 			args = args.substring(args.indexOf(",") + 1);
 			args.trim();
 			int powerPin = args.substring(0, args.indexOf(",")).toInt();
-			args = args.substring(args.indexOf(",") + 1);
-			args.trim();
-			float coef = args.substring(0, args.indexOf(",")).toFloat();
-			Serial.println(getCalibratedSoilMoisture(sensorPin, powerPin, coef));
+			Serial.println(getMoist(sensorPin, powerPin));
 		}
 		else if (input.indexOf("water(") >= 0) {
 			String args = input.substring(input.indexOf("(") + 1, input.indexOf(")"));
@@ -193,23 +166,25 @@ void loop () {
 		else if (input.indexOf("setBrightness(") >= 0) {
 			String args = input.substring(input.indexOf("(") + 1, input.indexOf(")"));
 			args.trim();
-			int pwmPin = args.substring(0, args.indexOf(",")).toInt();
+			int brightness = args.substring(0, args.indexOf(",")).toInt();
+			setBrightness(brightness);
+			Serial.println("0");
+		}
+		else if (input.indexOf("setBrightnessPins(") >= 0) {
+			String args = input.substring(input.indexOf("(") + 1, input.indexOf(")"));
+			args.trim();
+			int posPin = args.substring(0, args.indexOf(",")).toInt();
+			args = args.substring(args.indexOf(",") + 1);
+			args.trim();
+			int negPin = args.substring(0, args.indexOf(",")).toInt();
 			args = args.substring(args.indexOf(",") + 1);
 			args.trim();
 			int brightness = args.substring(0, args.indexOf(",")).toInt();
-			setBrightness(pwmPin, brightness);
-			Serial.print("Set brightness to ");
-			Serial.print(brightness);
-			Serial.println("%");
+			setBrightnessPins(posPin, negPin, brightness);
+			Serial.println("0");
 		}
-		else if (input.indexOf("getCalibrationCoef(") >= 0) {
-			String args = input.substring(input.indexOf("(") + 1, input.indexOf(")"));
-			args.trim();
-			int sensorPin = args.substring(0, args.indexOf(",")).toInt();
-			args = args.substring(args.indexOf(",") + 1);
-			args.trim();
-			int powerPin = args.substring(0, args.indexOf(",")).toInt();
-			Serial.println(getCalibrationCoef(sensorPin, powerPin), 5);
+		else {
+			Serial.println("Invalid entry, please try again");	
 		}
 	}
 }

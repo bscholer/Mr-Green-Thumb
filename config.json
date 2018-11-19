@@ -1,0 +1,66 @@
+{
+	"lightBegin": 0,
+	"lightEnd": 1439,
+	"lightIntensity": 1.0,
+	"lightPwmPin": 2,
+	"dhtPin": 12,
+	"numPlants": 4,
+	"plants": [
+		{
+			"name": "Cilantro"
+		},
+		{
+			"name": "Lettuce"
+		},
+		{
+			"name": "Basil"
+		},
+		{
+			"name": "Jalapeno"
+		}
+	],
+	"moistureSensors": [
+		{
+			"sensorPin": 0,
+			"powerPin": 22,
+			"min": 510,
+			"max": 960
+		},
+		{
+			"sensorPin": 1,
+			"powerPin": 23,
+			"min": 445,
+			"max": 1000
+		},
+		{
+			"sensorPin": 2,
+			"powerPin": 24,
+			"min": 445,
+			"max": 1005
+		},
+		{
+			"sensorPin": 3,
+			"powerPin": 36,
+			"min": 460,
+			"max": 915
+		}
+	],
+	"pumps": [
+		{
+			"posPin": 4,
+			"negPin": 5
+		},
+		{
+			"posPin": 6,
+			"negPin": 7
+		},
+		{
+			"posPin": 8,
+			"negPin": 9
+		},
+		{
+			"posPin": 10,
+			"negPin": 11
+		}
+	]
+}
